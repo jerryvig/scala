@@ -12,7 +12,7 @@ object CrunchBaseStartups {
   def main( args: Array[String] ) {
     driver.setJavascriptEnabled( false )
     
-    getCompany()
+    getCompanyList()
     
     writer.close()
   }
