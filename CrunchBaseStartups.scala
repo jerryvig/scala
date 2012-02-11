@@ -12,7 +12,7 @@ object CrunchBaseStartups {
 
   def main( args: Array[String] ) {
     driver.setJavascriptEnabled( false )    
-    getJSONUrls()
+    getJSONRecords()
     writer.close()
   }
 
@@ -69,5 +69,16 @@ object CrunchBaseStartups {
        } catch { case e:Exception => e.printStackTrace }   
     }
     jsonUrlsWriter.close()
+  }
+
+  def getJSONRecords() {
+    val rows = (new CSVReader( new FileReader("/tmp/CrunchBaseJSONUrls.csv") )).readAll()
+    
+    for ( i <- 0 until rows.size() ) {
+       val cols = rows.get(i)
+       driver.get( cols(2) )
+       println( driver.getPageSource() )
+       Thread.sleep( 250 );
+    }
   }
 }
