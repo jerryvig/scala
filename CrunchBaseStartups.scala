@@ -16,15 +16,18 @@ object CrunchBaseStartups {
     writer.close()
   }
 
-  def getCompany() {
-    driver.get( "http://api.crunchbase.com/v/1/company/pinterest.js" )
+  def getCompany( urlString : String ) {
+    driver.get( urlString )
     val jsonObj = new JSONObject( driver.getPageSource() )
 
+    val companyName = jsonObj.getString("name")
+    val crunchBaseUrl = jsonObj.getString("crunchbase_url")
+    val companyUrl = jsonObj.getString("homepage_url")
     val fundingArray = jsonObj.getJSONArray( "funding_rounds" )
     for ( i <- 0 until fundingArray.length() ) {
-       val roundObject = fundingArray.getJSONObject(i)
-      
-       writer.writeNext( Array( roundObject.getString("raised_amount"), roundObject.getString("raised_currency_code"), roundObject.getString("funded_month"), roundObject.getString("funded_day") ) )
+       val roundObject = fundingArray.getJSONObject(i)      
+       println( companyName + ", " + crunchBaseUrl )
+       writer.writeNext( Array( companyName, crunchBaseUrl, companyUrl, roundObject.getString("raised_amount"), roundObject.getString("raised_currency_code"), roundObject.getString("funded_year"), roundObject.getString("funded_month"), roundObject.getString("funded_day") ) )
     }
   }
 
@@ -76,8 +79,7 @@ object CrunchBaseStartups {
     
     for ( i <- 0 until rows.size() ) {
        val cols = rows.get(i)
-       driver.get( cols(2) )
-       println( driver.getPageSource() )
+       getCompany( cols(2) )
        Thread.sleep( 250 );
     }
   }
