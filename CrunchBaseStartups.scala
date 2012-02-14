@@ -18,32 +18,34 @@ object CrunchBaseStartups {
 
   def getCompany( urlString : String ) {
     driver.get( urlString )
-    val jsonObj = new JSONObject( driver.getPageSource() )
-
     try {
-     val companyName = jsonObj.getString("name")
-     val crunchBaseUrl = jsonObj.getString("crunchbase_url")
-     val companyUrl = jsonObj.getString("homepage_url")
-     val fundingArray = jsonObj.getJSONArray( "funding_rounds" )
-     val totalRaised = jsonObj.getString("total_money_raised")
-     val numberOfEmployees = jsonObj.getString("number_of_employees")
-     val officesArray = jsonObj.getJSONArray("offices")
-     var city = ""
-     var stateCode = ""
-     var countryCode = ""
-     if ( officesArray.length() > 0 ) {
+     val jsonObj = new JSONObject( driver.getPageSource() )
+
+     try {
+      val companyName = jsonObj.getString("name")
+      val crunchBaseUrl = jsonObj.getString("crunchbase_url")
+      val companyUrl = jsonObj.getString("homepage_url")
+      val fundingArray = jsonObj.getJSONArray( "funding_rounds" )
+      val totalRaised = jsonObj.getString("total_money_raised")
+      val numberOfEmployees = jsonObj.getString("number_of_employees")
+      val officesArray = jsonObj.getJSONArray("offices")
+      var city = ""
+      var stateCode = ""
+      var countryCode = ""
+      if ( officesArray.length() > 0 ) {
       val officesObj = officesArray.getJSONObject(0)
       city = officesObj.getString("city")
       stateCode = officesObj.getString("state_code")
       countryCode = officesObj.getString("country_code")
-     }
-     println( companyName + ", " + crunchBaseUrl + ", " + city )
+      }
+      println( companyName + ", " + crunchBaseUrl + ", " + city )
 
-     for ( i <- 0 until fundingArray.length() ) {
+      for ( i <- 0 until fundingArray.length() ) {
        val roundObject = fundingArray.getJSONObject(i)      
        writer.writeNext( Array( companyName, city, stateCode, countryCode, crunchBaseUrl, companyUrl, totalRaised, roundObject.getString("raised_amount"), roundObject.getString("raised_currency_code"), roundObject.getString("funded_year"), roundObject.getString("funded_month"), roundObject.getString("funded_day") ) )
-     }
-    } catch { case e:Exception => e.printStackTrace }   
+      }
+     } catch { case e:Exception => e.printStackTrace } 
+    } catch { case e:Exception => e.printStackTrace } 
   }
 
   def getCompanyList() {
@@ -94,7 +96,9 @@ object CrunchBaseStartups {
     
     for ( i <- 0 until rows.size() ) {
        val cols = rows.get(i)
-       getCompany( cols(2) )
+       try {
+        getCompany( cols(2) )
+       } catch { case e:Exception => e.printStackTrace }   
        Thread.sleep( 300 );
     }
   }
