@@ -26,11 +26,22 @@ object CrunchBaseStartups {
      val companyUrl = jsonObj.getString("homepage_url")
      val fundingArray = jsonObj.getJSONArray( "funding_rounds" )
      val totalRaised = jsonObj.getString("total_money_raised")
+     val numberOfEmployees = jsonObj.getString("number_of_employees")
+     val officesArray = jsonObj.getJSONArray("offices")
+     var city = ""
+     var stateCode = ""
+     var countryCode = ""
+     if ( officesArray.length() > 0 ) {
+      val officesObj = officesArray.getJSONObject(0)
+      city = officesObj.getString("city")
+      stateCode = officesObj.getString("state_code")
+      countryCode = officesObj.getString("country_code")
+     }
+     println( companyName + ", " + crunchBaseUrl + ", " + city )
 
      for ( i <- 0 until fundingArray.length() ) {
        val roundObject = fundingArray.getJSONObject(i)      
-       println( companyName + ", " + crunchBaseUrl )
-       writer.writeNext( Array( companyName, crunchBaseUrl, companyUrl, totalRaised, roundObject.getString("raised_amount"), roundObject.getString("raised_currency_code"), roundObject.getString("funded_year"), roundObject.getString("funded_month"), roundObject.getString("funded_day") ) )
+       writer.writeNext( Array( companyName, city, stateCode, countryCode, crunchBaseUrl, companyUrl, totalRaised, roundObject.getString("raised_amount"), roundObject.getString("raised_currency_code"), roundObject.getString("funded_year"), roundObject.getString("funded_month"), roundObject.getString("funded_day") ) )
      }
     } catch { case e:Exception => e.printStackTrace }   
   }
