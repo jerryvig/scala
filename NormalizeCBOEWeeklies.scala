@@ -41,6 +41,39 @@ object NormalizeCBOEWeeklies {
 
    stmt.executeUpdate("INSERT INTO cboe_weeklies_sharpe SELECT ticker_symbol, AVG(day_change), AVG(day_change)/STDDEV(day_change) FROM cboe_weeklies_returns WHERE eod_date>'01-JAN-11' GROUP BY ticker_symbol")
 
+    //For revenue growth data from Morningstar
+    try {
+      stmt.executeUpdate("DROP SEQUENCE cboe_weekly_revs_seq")
+    } catch { case e:Exception => }
+
+    try {
+      stmt.executeUpdate("DROP TABLE cboe_weeklies_revs_ordered")
+    } catch { case e:Exception => }
+
+    stmt.executeUpdate("CREATE SEQUENCE cboe_weekly_revs_seq START WITH 1 INCREMENT BY 1")
+    
+    stmt.executeUpdate("CREATE TABLE cboe_weeklies_revs_ordered ( idx NUMBER PRIMARY KEY, ticker_symbol VARCHAR(10), period VARCHAR(16), revenue DOUBLE PRECISION )")
+
+    stmt.executeUpdate("CREATE OR REPLACE TRIGGER cboe_rev_trigger BEFORE INSERT ON cboe_weeklies_revs_ordered REFERENCING NEW AS NEW FOR EACH ROW BEGIN SELECT cboe_weekly_revs_seq.nextval INTO :NEW.IDX FROM dual; END;")
+
+    stmt.executeUpdate("INSERT INTO cboe_weeklies_revs_ordered ( ticker_symbol, period, revenue ) SELECT * FROM CBOE_WEEKLIES_REVENUE ORDER BY ticker_symbol ASC, period ASC")
+
+    try {
+      stmt.executeUpdate("DROP TABLE cboe_revenue_growth")
+    } catch { case e:Exception => }
+
+    stmt.executeUpdate("CREATE TABLE cboe_revenue_growth ( idx NUMBER, ticker_symbol VARCHAR(10), period VARCHAR(16), revenue DOUBLE PRECISION, rev_growth DOUBLE PRECISION )")
+
+    stmt.executeUpdate("INSERT INTO cboe_revenue_growth SELECT t1.idx, t1.ticker_symbol, t1.period, t1.revenue, (t1.revenue-t2.revenue)/t2.revenue FROM cboe_weeklies_revs_ordered t1, cboe_weeklies_revs_ordered t2 WHERE (t2.ticker_symbol=t1.ticker_symbol AND t2.idx=(t1.idx-1) AND t2.revenue>0) ORDER BY t1.idx ASC")
+
+    try {
+      stmt.executeUpdate("DROP TABLE cboe_sharpe_revg");
+    } catch { case e:Exception => }
+    
+    stmt.executeUpdate("CREATE TABLE cboe_sharpe_revg ( ticker_symbol VARCHAR(10), avg_rev_growth DOUBLE PRECISION, sharpe_rev_growth DOUBLE PRECISION )")
+
+    stmt.executeUpdate("INSERT INTO cboe_sharpe_revg SELECT ticker_symbol, AVG(rev_growth), AVG(rev_growth)/STDDEV(rev_growth) FROM cboe_revenue_growth GROUP BY ticker_symbol")
+
     conn.close()    
   } 
 }
