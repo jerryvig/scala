@@ -74,6 +74,15 @@ object NormalizeCBOEWeeklies {
 
     stmt.executeUpdate("INSERT INTO cboe_sharpe_revg SELECT ticker_symbol, AVG(rev_growth), AVG(rev_growth)/STDDEV_POP(rev_growth) FROM cboe_revenue_growth GROUP BY ticker_symbol")
 
+    //For ranking algos
+    try {
+      stmt.executeUpdate("DROP TABLE cboe_sharpe_ratios");
+    } catch { case e:Exception => }
+
+    stmt.executeUpdate("CREATE TABLE cboe_sharpe_ratios ( ticker_symbol VARCHAR(10), sharpe_ratio DOUBLE PRECISION, sharpe_rev_growth DOUBLE PRECISION )");
+
+    stmt.executeUpdate("INSERT INTO cboe_sharpe_ratios SELECT t1.ticker_symbol, t1.sharpe_ratio, t2.sharpe_rev_growth FROM cboe_weeklies_sharpe t1, cboe_sharpe_revg t2 WHERE (t2.ticker_symbol=t1.ticker_symbol AND t1.sharpe_ratio>0.0 AND t2.sharpe_rev_growth>0.0)");
+
     try {
       stmt.executeUpdate("DROP SEQUENCE rank_seq");
     } catch { case e:Exception => }
@@ -92,7 +101,7 @@ object NormalizeCBOEWeeklies {
 
     stmt.executeUpdate("CREATE OR REPLACE TRIGGER sharpe_ranks_trigger BEFORE INSERT ON sharpe_ratio_ranks REFERENCING NEW AS NEW FOR EACH ROW BEGIN SELECT rank_seq.nextval INTO :NEW.IDX FROM dual; END;")
 
-    stmt.executeUpdate("INSERT INTO sharpe_ratio_ranks (ticker_symbol) SELECT ticker_symbol FROM cboe_weeklies_sharpe ORDER BY sharpe_ratio DESC");
+    stmt.executeUpdate("INSERT INTO sharpe_ratio_ranks (ticker_symbol) SELECT ticker_symbol FROM cboe_sharpe_ratios ORDER BY sharpe_ratio DESC");
 
     try { 
      stmt.executeUpdate("DROP SEQUENCE rank_seq")
@@ -112,7 +121,7 @@ object NormalizeCBOEWeeklies {
 
     stmt.executeUpdate("CREATE OR REPLACE TRIGGER sharpe_ranks_trigger BEFORE INSERT ON sharpe_revg_ranks REFERENCING NEW AS NEW FOR EACH ROW BEGIN SELECT rank_seq.nextval INTO :NEW.IDX FROM dual; END;");
 
-    stmt.executeUpdate("INSERT INTO sharpe_revg_ranks (ticker_symbol) SELECT ticker_symbol FROM cboe_sharpe_revg ORDER BY sharpe_rev_growth DESC")
+    stmt.executeUpdate("INSERT INTO sharpe_revg_ranks (ticker_symbol) SELECT ticker_symbol FROM cboe_sharpe_ratios ORDER BY sharpe_rev_growth DESC")
 
     try {
       stmt.executeUpdate("DROP TABLE cboe_norm_ranks")
