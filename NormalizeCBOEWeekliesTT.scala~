@@ -1,0 +1,49 @@
+import java.sql.{Connection, DriverManager, Statement}
+
+object NormalizeCBOEWeekliesTT {
+  def main( args: Array[String] ) {
+    classOf[com.timesten.jdbc.TimesTenDriver]    
+    val conn = DriverManager.getConnection("jdbc:timesten:direct:dsn=MORNINGSTAR")
+    val stmt = conn.createStatement()
+
+    try {
+     stmt.executeUpdate("DROP SEQUENCE cboe_eod_seq")
+    } catch { case e:Exception => }
+
+    try {
+      stmt.executeUpdate("DROP TABLE CBOE_WEEKLIES_ORDERED")
+    }  catch { case e:Exception => }
+
+    stmt.executeUpdate("CREATE SEQUENCE cboe_eod_seq INCREMENT BY 1")
+
+    stmt.executeUpdate("CREATE TABLE CBOE_WEEKLIES_ORDERED ( idx INTEGER, eod_date DATE, ticker_symbol VARCHAR(10), adj_close DOUBLE PRECISION )")
+    
+    stmt.executeUpdate("INSERT INTO CBOE_WEEKLIES_ORDERED ( eod_date, ticker_symbol, adj_close ) SELECT eod_date, ticker_symbol, adj_close FROM cboe_weeklies_eod ORDER BY ticker_symbol ASC, eod_date ASC" )    
+
+    stmt.executeUpdate("UPDATE CBOE_WEEKLIES_ORDERED set idx = cboe_eod_seq.nextval")
+
+    stmt.executeUpdate("CREATE INDEX cboe_wo_id_idx ON CBOE_WEEKLIES_ORDERED ( idx )");
+    stmt.executeUpdate("CREATE INDEX cboe_wo_ticker_idx ON CBOE_WEEKLIES_ORDERED ( ticker_symbol )")
+
+    try {
+      stmt.executeUpdate("DROP TABLE CBOE_WEEKLIES_RETURNS")
+    } catch { case e:Exception => }
+ 
+    stmt.executeUpdate("CREATE TABLE cboe_weeklies_returns ( idx INTEGER, eod_date DATE, ticker_symbol VARCHAR(10), adj_close DOUBLE PRECISION, day_change DOUBLE PRECISION )")
+
+    stmt.executeUpdate("INSERT INTO cboe_weeklies_returns SELECT t1.idx, t1.eod_date, t1.ticker_symbol, t1.adj_close, (t1.adj_close-t2.adj_close)/t2.adj_close FROM cboe_weeklies_ordered t1, cboe_weeklies_ordered t2 WHERE (t2.ticker_symbol=t1.ticker_symbol AND t2.idx=(t1.idx-1))")
+
+    stmt.executeUpdate("CREATE INDEX cboe_wr_eod_idx ON cboe_weeklies_returns ( eod_date )")
+    stmt.executeUpdate("CREATE INDEX cboe_wr_ts_idx ON cboe_weeklies_returns ( ticker_symbol )")
+   
+    try {
+      stmt.executeUpdate("DROP TABLE cboe_weeklies_sharpe")
+    } catch { case e:Exception => }
+           
+    stmt.executeUpdate("CREATE TABLE cboe_weeklies_sharpe ( ticker_symbol VARCHAR(10), avg_return DOUBLE PRECISION, sharpe_ratio DOUBLE PRECISION )")
+
+    stmt.executeUpdate("INSERT INTO cboe_weeklies_sharpe SELECT ticker_symbol, AVG(day_change), AVG(day_change)/SQRT(SUM(day_change*day_change)/COUNT(*)-(SUM(day_change)/COUNT(*))*(SUM(day_change)/COUNT(*))) FROM cboe_weeklies_returns GROUP BY ticker_symbol")
+
+    conn.close()    
+  } 
+}
