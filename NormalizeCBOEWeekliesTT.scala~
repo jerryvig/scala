@@ -44,6 +44,78 @@ object NormalizeCBOEWeekliesTT {
 
     stmt.executeUpdate("INSERT INTO cboe_weeklies_sharpe SELECT ticker_symbol, AVG(day_change), AVG(day_change)/SQRT(SUM(day_change*day_change)/COUNT(*)-(SUM(day_change)/COUNT(*))*(SUM(day_change)/COUNT(*))) FROM cboe_weeklies_returns GROUP BY ticker_symbol")
 
-    conn.close()    
-  } 
+    try {
+      stmt.executeUpdate("DROP SEQUENCE cboe_weekly_revs_seq")
+    } catch { case e:Exception => }
+
+    try {
+      stmt.executeUpdate("DROP TABLE cboe_weeklies_revs_ordered")
+    } catch { case e:Exception => }
+
+    stmt.executeUpdate("CREATE SEQUENCE cboe_weekly_revs_seq INCREMENT BY 1")
+
+    stmt.executeUpdate("CREATE TABLE cboe_weeklies_revs_ordered ( idx INTEGER, ticker_symbol VARCHAR(10), period VARCHAR(16), revenue DOUBLE PRECISION )")
+
+    stmt.executeUpdate("INSERT INTO cboe_weeklies_revs_ordered ( ticker_symbol, period, revenue ) SELECT * FROM CBOE_WEEKLIES_REVENUE ORDER BY ticker_symbol ASC, period ASC")
+
+    stmt.executeUpdate("UPDATE cboe_weeklies_revs_ordered set idx=cboe_weekly_revs_seq.nextval")
+
+    try {
+      stmt.executeUpdate("DROP TABLE cboe_revenue_growth")
+    } catch { case e:Exception => }
+
+    stmt.executeUpdate("CREATE TABLE cboe_revenue_growth ( idx INTEGER, ticker_symbol VARCHAR(10), period VARCHAR(16), revenue DOUBLE PRECISION, rev_growth DOUBLE PRECISION )")
+
+    stmt.executeUpdate("INSERT INTO cboe_revenue_growth SELECT t1.idx, t1.ticker_symbol, t1.period, t1.revenue, (t1.revenue-t2.revenue)/t2.revenue FROM cboe_weeklies_revs_ordered t1, cboe_weeklies_revs_ordered t2 WHERE (t2.ticker_symbol=t1.ticker_symbol AND t2.idx=(t1.idx-1)AND t2.revenue>0)")
+
+    try {
+      stmt.executeUpdate("DROP TABLE cboe_sharpe_revg")
+    } catch { case e:Exception => }
+    
+    stmt.executeUpdate("CREATE TABLE cboe_sharpe_revg ( ticker_symbol VARCHAR(10), avg_rev_growth DOUBLE PRECISION, sharpe_rev_growth DOUBLE PRECISION )")
+
+    stmt.executeUpdate("INSERT INTO cboe_sharpe_revg SELECT ticker_symbol, AVG(rev_growth), AVG(rev_growth)/SQRT(SUM(rev_growth*rev_growth)/COUNT(*)-(SUM(rev_growth)/COUNT(rev_growth))*(SUM(rev_growth)/COUNT(*))) FROM cboe_revenue_growth GROUP BY ticker_symbol")
+
+    try {
+     stmt.executeUpdate("DROP TABLE cboe_sharpe_ratios")
+    } catch { case e:Exception => }
+
+    stmt.executeUpdate("CREATE TABLE cboe_sharpe_ratios ( ticker_symbol VARCHAR(10), sharpe_ratio DOUBLE PRECISION, sharpe_rev_growth DOUBLE PRECISION )")
+
+    stmt.executeUpdate("INSERT INTO cboe_sharpe_ratios SELECT t1.ticker_symbol, t1.sharpe_ratio, t2.sharpe_rev_growth FROM cboe_weeklies_sharpe t1, cboe_sharpe_revg t2 WHERE (t2.ticker_symbol=t1.ticker_symbol AND t1.sharpe_ratio>0.0 AND t2.sharpe_rev_growth>0.0)")
+
+    try {
+      stmt.executeUpdate("DROP SEQUENCE rank_seq")
+    } catch { case e:Exception => }
+
+    stmt.executeUpdate("CREATE SEQUENCE rank_seq INCREMENT BY 1")
+
+    try {
+      stmt.executeUpdate("DROP TABLE sharpe_ratio_ranks")
+    } catch { case e:Exception => }
+
+    stmt.executeUpdate("CREATE TABLE sharpe_ratio_ranks ( idx INTEGER, ticker_symbol VARCHAR(10) )")
+
+    stmt.executeUpdate("INSERT INTO sharpe_ratio_ranks (ticker_symbol) SELECT ticker_symbol FROM cboe_sharpe_ratios ORDER BY sharpe_ratio DESC")
+  
+    stmt.executeUpdate("UPDATE sharpe_ratio_ranks SET idx=rank_seq.nextval")
+
+    try {
+      stmt.executeUpdate("DROP SEQUENCE rank_seq")
+    } catch { case e:Exception => }
+
+    stmt.executeUpdate("CREATE SEQUENCE rank_seq INCREMENT BY 1")
+
+    try {
+     stmt.executeUpdate("DROP TABLE sharpe_revg_ranks")
+    } catch { case e:Exception => }
+
+    stmt.executeUpdate("CREATE TABLE sharpe_revg_ranks ( idx INTEGER, ticker_symbol VARCHAR(10) )")
+
+    stmt.executeUpdate("INSERT INTO sharpe_revg_ranks (ticker_symbol) SELECT ticker_symbol FROM cboe_sharpe_ratios ORDER BY sharpe_rev_growth DESC")
+
+    stmt.executeUpdate("UPDATE sharpe_revg_ranks SET idx=rank_seq.nextval")
+
+    conn.close()
+  }
 }

@@ -76,6 +76,54 @@ object NormalizeCBOEWeekliesTT {
 
     stmt.executeUpdate("INSERT INTO cboe_sharpe_revg SELECT ticker_symbol, AVG(rev_growth), AVG(rev_growth)/SQRT(SUM(rev_growth*rev_growth)/COUNT(*)-(SUM(rev_growth)/COUNT(rev_growth))*(SUM(rev_growth)/COUNT(*))) FROM cboe_revenue_growth GROUP BY ticker_symbol")
 
-    conn.close()    
-  } 
+    try {
+     stmt.executeUpdate("DROP TABLE cboe_sharpe_ratios")
+    } catch { case e:Exception => }
+
+    stmt.executeUpdate("CREATE TABLE cboe_sharpe_ratios ( ticker_symbol VARCHAR(10), sharpe_ratio DOUBLE PRECISION, sharpe_rev_growth DOUBLE PRECISION )")
+
+    stmt.executeUpdate("INSERT INTO cboe_sharpe_ratios SELECT t1.ticker_symbol, t1.sharpe_ratio, t2.sharpe_rev_growth FROM cboe_weeklies_sharpe t1, cboe_sharpe_revg t2 WHERE (t2.ticker_symbol=t1.ticker_symbol AND t1.sharpe_ratio>0.0 AND t2.sharpe_rev_growth>0.0)")
+
+    try {
+      stmt.executeUpdate("DROP SEQUENCE rank_seq")
+    } catch { case e:Exception => }
+
+    stmt.executeUpdate("CREATE SEQUENCE rank_seq INCREMENT BY 1")
+
+    try {
+      stmt.executeUpdate("DROP TABLE sharpe_ratio_ranks")
+    } catch { case e:Exception => }
+
+    stmt.executeUpdate("CREATE TABLE sharpe_ratio_ranks ( idx INTEGER, ticker_symbol VARCHAR(10) )")
+
+    stmt.executeUpdate("INSERT INTO sharpe_ratio_ranks (ticker_symbol) SELECT ticker_symbol FROM cboe_sharpe_ratios ORDER BY sharpe_ratio DESC")
+  
+    stmt.executeUpdate("UPDATE sharpe_ratio_ranks SET idx=rank_seq.nextval")
+
+    try {
+      stmt.executeUpdate("DROP SEQUENCE rank_seq")
+    } catch { case e:Exception => }
+
+    stmt.executeUpdate("CREATE SEQUENCE rank_seq INCREMENT BY 1")
+
+    try {
+     stmt.executeUpdate("DROP TABLE sharpe_revg_ranks")
+    } catch { case e:Exception => }
+
+    stmt.executeUpdate("CREATE TABLE sharpe_revg_ranks ( idx INTEGER, ticker_symbol VARCHAR(10) )")
+
+    stmt.executeUpdate("INSERT INTO sharpe_revg_ranks (ticker_symbol) SELECT ticker_symbol FROM cboe_sharpe_ratios ORDER BY sharpe_rev_growth DESC")
+
+    stmt.executeUpdate("UPDATE sharpe_revg_ranks SET idx=rank_seq.nextval")
+
+    try {
+      stmt.executeUpdate("DROP TABLE cboe_norm_ranks")
+    } catch { case e:Exception => }
+
+    stmt.executeUpdate("CREATE TABLE cboe_norm_ranks ( ticker_symbol VARCHAR(10), sharpe_ratio_rank INTEGER, sharpe_revg_rank INTEGER, norm_rank DOUBLE PRECISION )")
+
+    stmt.executeUpdate("INSERT INTO cboe_norm_ranks SELECT t1.ticker_symbol, t1.idx, t2.idx, SQRT(t1.idx*t1.idx+t2.idx*t2.idx) FROM sharpe_ratio_ranks t1, sharpe_revg_ranks t2 WHERE (t2.ticker_symbol=t1.ticker_symbol)")
+    
+    conn.close()
+  }
 }
