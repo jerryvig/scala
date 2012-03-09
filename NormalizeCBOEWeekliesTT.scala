@@ -31,6 +31,10 @@ object NormalizeCBOEWeekliesTT {
     } catch { case e:Exception => }
 
     try {
+      stmt.executeUpdate("DROP TABLE CBOE_WEEKLIES_RETURNS")
+    } catch { case e:Exception => }
+
+    try {
       stmt.executeUpdate("DROP TABLE CBOE_WEEKLIES_ORDERED")
     }  catch { case e:Exception => }
 
@@ -44,10 +48,6 @@ object NormalizeCBOEWeekliesTT {
 
     stmt.executeUpdate("CREATE INDEX cboe_wo_id_idx ON CBOE_WEEKLIES_ORDERED ( idx )");
     stmt.executeUpdate("CREATE INDEX cboe_wo_ticker_idx ON CBOE_WEEKLIES_ORDERED ( ticker_symbol )")
-
-    try {
-      stmt.executeUpdate("DROP TABLE CBOE_WEEKLIES_RETURNS")
-    } catch { case e:Exception => }
  
     stmt.executeUpdate("CREATE TABLE cboe_weeklies_returns ( idx INTEGER, eod_date DATE, ticker_symbol VARCHAR(10), adj_close DOUBLE PRECISION, day_change DOUBLE PRECISION )")
 
