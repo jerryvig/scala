@@ -80,6 +80,8 @@ object NormalizeCBOEWeekliesTT {
 
     stmt.executeUpdate("UPDATE cboe_weeklies_revs_ordered set idx=cboe_weekly_revs_seq.nextval")
 
+    stmt.executeUpdate("CREATE INDEX cboe_revso_ticker_idx ON cboe_weeklies_revs_ordered ( ticker_symbol )");
+
     try {
       stmt.executeUpdate("DROP TABLE cboe_revenue_growth")
     } catch { case e:Exception => }
@@ -87,6 +89,8 @@ object NormalizeCBOEWeekliesTT {
     stmt.executeUpdate("CREATE TABLE cboe_revenue_growth ( idx INTEGER, ticker_symbol VARCHAR(10), period VARCHAR(16), revenue DOUBLE PRECISION, rev_growth DOUBLE PRECISION )")
 
     stmt.executeUpdate("INSERT INTO cboe_revenue_growth SELECT t1.idx, t1.ticker_symbol, t1.period, t1.revenue, (t1.revenue-t2.revenue)/t2.revenue FROM cboe_weeklies_revs_ordered t1, cboe_weeklies_revs_ordered t2 WHERE (t2.ticker_symbol=t1.ticker_symbol AND t2.idx=(t1.idx-1)AND t2.revenue>0)")
+
+    stmt.executeUpdate("CREATE INDEX cboe_revg_ticker_idx ON cboe_revenue_growth ( ticker_symbol )");
 
     try {
       stmt.executeUpdate("DROP TABLE cboe_sharpe_revg")
@@ -290,7 +294,9 @@ object NormalizeCBOEWeekliesTT {
 
    stmt.executeUpdate("CREATE TABLE cboe_norm_ranks ( ticker_symbol VARCHAR(10), sharpe_ratio_rank INTEGER, sharpe_revg_rank INTEGER, sharpe_fcfg_rank INTEGER, price_to_deps_rank INTEGER, norm_rank DOUBLE PRECISION )")
 
-   stmt.executeUpdate("INSERT INTO cboe_norm_ranks SELECT t1.ticker_symbol, t1.idx, t2.idx, t3.idx, t6.idx, SQRT(t1.idx*t1.idx + t2.idx*t2.idx + t3.idx*t3.idx + t6.idx*t6.idx) FROM sharpe_ratio_ranks t1, sharpe_revg_ranks t2, sharpe_fcf_ranks t3, price_to_deps_ranks t6 WHERE (t2.ticker_symbol=t1.ticker_symbol AND t3.ticker_symbol=t1.ticker_symbol AND t6.ticker_symbol=t1.ticker_symbol)")
+   stmt.executeUpdate("INSERT INTO cboe_norm_ranks SELECT t1.ticker_symbol, t1.idx, t2.idx, t3.idx, t6.idx, t1.idx*t1.idx + t2.idx*t2.idx + t3.idx*t3.idx + t6.idx*t6.idx FROM sharpe_ratio_ranks t1, sharpe_revg_ranks t2, sharpe_fcf_ranks t3, price_to_deps_ranks t6 WHERE (t2.ticker_symbol=t1.ticker_symbol AND t3.ticker_symbol=t1.ticker_symbol AND t6.ticker_symbol=t1.ticker_symbol)")
+
+   stmt.executeUpdate("CREATE INDEX cboe_nr_nr_idx ON cboe_norm_ranks ( norm_rank )");
 
    conn.close()
   }
