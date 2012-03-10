@@ -156,6 +156,8 @@ object NormalizeCBOEWeekliesTT {
 
     stmt.executeUpdate("UPDATE cboe_fcf_ordered set idx=cboe_fcf_seq.nextval")
 
+    stmt.executeUpdate("CREATE INDEX cboe_fcfo_ticker_idx ON cboe_fcf_ordered ( ticker_symbol )");
+
     try {
       stmt.executeUpdate("DROP TABLE cboe_fcf_growth")
     } catch { case e:Exception => }
@@ -163,6 +165,8 @@ object NormalizeCBOEWeekliesTT {
     stmt.executeUpdate("CREATE TABLE cboe_fcf_growth ( idx INTEGER, ticker_symbol VARCHAR(10), period VARCHAR(16), free_cash_flow DOUBLE PRECISION, fcf_growth DOUBLE PRECISION )")
 
     stmt.executeUpdate("INSERT INTO cboe_fcf_growth SELECT t1.idx, t1.ticker_symbol, t1.period, t1.free_cash_flow, (t1.free_cash_flow-t2.free_cash_flow)/t2.free_cash_flow FROM cboe_fcf_ordered t1, cboe_fcf_ordered t2 WHERE (t2.ticker_symbol=t1.ticker_symbol AND t2.idx=(t1.idx-1) AND t2.free_cash_flow>0)")
+
+    stmt.executeUpdate("CREATE INDEX cboe_fcfg_ticker_idx ON cboe_fcf_growth ( ticker_symbol )");
 
     try {
       stmt.executeUpdate("DROP TABLE cboe_sharpe_fcfg")
@@ -172,6 +176,7 @@ object NormalizeCBOEWeekliesTT {
 
     stmt.executeUpdate("INSERT INTO cboe_sharpe_fcfg SELECT ticker_symbol, AVG(fcf_growth), AVG(fcf_growth)/SQRT(AVG(fcf_growth*fcf_growth)-AVG(fcf_growth)*AVG(fcf_growth)) FROM cboe_fcf_growth WHERE period!='TTM' GROUP BY ticker_symbol HAVING COUNT(*)>1");
 
+    /*
     try {
       stmt.executeUpdate("DROP SEQUENCE cboe_nm_seq")
     } catch { case e:Exception => }
@@ -235,10 +240,11 @@ object NormalizeCBOEWeekliesTT {
    stmt.executeUpdate("CREATE TABLE cboe_sharpe_depsg ( ticker_symbol VARCHAR(10), avg_depsg DOUBLE PRECISION, sharpe_depsg DOUBLE PRECISION )")
 
    stmt.executeUpdate("INSERT INTO cboe_sharpe_depsg SELECT ticker_symbol, AVG(deps_growth), AVG(deps_growth)/SQRT(AVG(deps_growth*deps_growth)-AVG(deps_growth)*AVG(deps_growth)) FROM cboe_deps_growth WHERE period!='TTM' GROUP BY ticker_symbol HAVING COUNT(*)>1")
+   */
 
    stmt.executeUpdate("CREATE TABLE price_to_deps ( ticker_symbol VARCHAR(10), price_to_deps DOUBLE PRECISION )")
 
-   stmt.executeUpdate("INSERT INTO price_to_deps SELECT t1.ticker_symbol, t1.close/t2.diluted_eps FROM cboe_weeklies_eod t1, cboe_weeklies_eps t2 WHERE ((t1.eod_date='2012-02-29') AND t2.ticker_symbol=t1.ticker_symbol AND t2.period='TTM' AND t2.diluted_eps>0)")
+   stmt.executeUpdate("INSERT INTO price_to_deps SELECT t1.ticker_symbol, t1.close/t2.diluted_eps FROM cboe_weeklies_eod t1, cboe_weeklies_eps t2 WHERE ((t1.eod_date='2012-03-08') AND t2.ticker_symbol=t1.ticker_symbol AND t2.period='TTM' AND t2.diluted_eps>0)")
 
    try {
      stmt.executeUpdate("DROP SEQUENCE rank_seq")
@@ -252,6 +258,7 @@ object NormalizeCBOEWeekliesTT {
 
    stmt.executeUpdate("UPDATE sharpe_fcf_ranks SET idx=rank_seq.nextval")
 
+   /*
    try {
      stmt.executeUpdate("DROP SEQUENCE rank_seq")
    } catch { case e:Exception => }
@@ -275,6 +282,7 @@ object NormalizeCBOEWeekliesTT {
    stmt.executeUpdate("INSERT INTO sharpe_deps_ranks (ticker_symbol) SELECT ticker_symbol FROM cboe_sharpe_depsg ORDER BY sharpe_depsg DESC")
 
    stmt.executeUpdate("UPDATE sharpe_deps_ranks SET idx=rank_seq.nextval")
+   */
 
    try {
      stmt.executeUpdate("DROP SEQUENCE rank_seq")
